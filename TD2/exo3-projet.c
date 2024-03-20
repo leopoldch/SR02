@@ -1,59 +1,86 @@
-//
-// Created by Léopold Chappuis on 20/03/2024.
-//
-#include "stdlib.h"
-#include "stdio.h"
-#include "signal.h"
-#include "unistd.h"
-#include "time.h"
-#include <sys/random.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <signal.h>
+#include <unistd.h>
+#include <time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
-int task_manager_pid;
+pid_t task_manager_pid;
+
+typedef struct Task{
+
+    unsigned int id_tache;
+    char *parameters;
+
+}Task;
 
 struct sigaction exit_manager;
 struct sigaction task_manager;
 
-void task_controller(){
+void task_controller(int signum){
     fflush(stdout);
-    printf("Signal reçu depuis le père");
+    printf("Signal reçu depuis le père\n");
     exit(0);
 }
 
-void exit_controller(){
-    // appel au fils
+void exit_controller(int signum){
     fflush(stdout);
-    printf("ctrl-c reçu");
+    printf("ctrl-c reçu\n le pid : %d", task_manager_pid);
+    // appel au fils
+
     kill(task_manager_pid, SIGUSR1);
 }
 
 int main(){
     int fd[2];
-    pipe(fd);
+    if (pipe(fd) == -1) {
+        perror("pipe");
+        exit(EXIT_FAILURE);
+    }
 
     task_manager_pid = fork();
-    if(task_manager_pid <0){
-        printf("Erreur lors du fork");
+    if(task_manager_pid < 0){
+        perror("fork");
+        exit(EXIT_FAILURE);
     }
-    else if(task_manager_pid==0){
-        // dans le fils "gestinnaire de tache")
+    else if(task_manager_pid == 0){
+        // dans le fils "gestionnaire de tâches"
         task_manager.sa_handler = task_controller;
-        sigaction(SIGUSR1, &task_manager, 0);
+        sigemptyset(&task_manager.sa_mask);
+        task_manager.sa_flags = 0;
+
+        if (sigaction(SIGUSR1, &task_manager, NULL) == -1) {
+            perror("sigaction");
+            exit(EXIT_FAILURE);
+        }
+
         while(1){
             sleep(1);
             fflush(stdout);
             printf("je suis là\n");
         }
+
     }else{
-        // dans le père
+
+        // dans le père aka main 
+
+
         exit_manager.sa_handler = exit_controller;
-        sigaction(SIGINT, &exit_manager, NULL);
         sigemptyset(&exit_manager.sa_mask);
-        sleep(1);
-        while (1){
-            pause();
+        exit_manager.sa_flags = 0;
+
+        if (sigaction(SIGINT, &exit_manager, NULL) == -1) {
+            perror("sigaction");
+            exit(EXIT_FAILURE);
         }
+        sleep(1); 
+        // ici on doit pouvoir envoyer des tâches à traiter au fils 
+
+        Task t1 = {1, "coucou"};
+
+
+
     }
     return 0;
 }
-
-
