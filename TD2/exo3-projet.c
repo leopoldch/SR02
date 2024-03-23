@@ -1,86 +1,111 @@
-#include <stdlib.h>
 #include <stdio.h>
-#include <signal.h>
+#include <stdlib.h>
 #include <unistd.h>
-#include <time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
+#include <string.h>
 
-pid_t task_manager_pid;
+#define MAX_TASKS 10
+#define BUFFER_SIZE 100
 
-typedef struct Task{
+typedef struct {
+    int task_id;
+    char params[BUFFER_SIZE];
+} Task;
 
-    unsigned int id_tache;
-    char *parameters;
+int pipefd[2];
 
-}Task;
+pid_t pid;
 
-struct sigaction exit_manager;
-struct sigaction task_manager;
+void handle_sigint(int sig, siginfo_t *info, void *context) {
+    kill(pid,SIGUSR1);
+}
 
-void task_controller(int signum){
-    fflush(stdout);
-    printf("Signal reçu depuis le père\n");
+void handle_son(int sig, siginfo_t *info, void *context) {
     exit(0);
 }
 
-void exit_controller(int signum){
-    fflush(stdout);
-    printf("ctrl-c reçu\n le pid : %d", task_manager_pid);
-    // appel au fils
+void task_manager() {
+    char buffer[BUFFER_SIZE];
+    int task_count = 0;
+    Task tasks[MAX_TASKS];
 
-    kill(task_manager_pid, SIGUSR1);
+    while (1) {
+        read(pipefd[0], buffer, BUFFER_SIZE);
+        if (strcmp(buffer, "SIGUSR1") == 0) {
+            break;
+        }
+
+        Task new_task;
+        sscanf(buffer, "%d %s", &new_task.task_id, new_task.params);
+        tasks[task_count++] = new_task;
+
+        pid = fork();
+        if (pid == 0) {
+            printf("Executing task %d with params: %s\n", new_task.task_id, new_task.params);
+            // on simule l'éxécution de la tâche pendant 5 secondes
+            sleep(5);
+            printf("Task %d completed\n", new_task.task_id);
+            exit(0);
+        } else if (pid < 0) {
+            perror("fork failed");
+            exit(1);
+        }
+    }
+
+    while (wait(NULL) > 0);
 }
 
-int main(){
-    int fd[2];
-    if (pipe(fd) == -1) {
+
+
+
+int main() {
+    if (pipe(pipefd) == -1) {
         perror("pipe");
         exit(EXIT_FAILURE);
     }
 
-    task_manager_pid = fork();
-    if(task_manager_pid < 0){
-        perror("fork");
+    struct sigaction sa;
+    struct sigaction son; 
+
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_sigaction = handle_sigint;
+    sa.sa_flags = SA_SIGINFO;
+
+    memset(&son, 0, sizeof(son));
+    son.sa_sigaction = handle_son;
+    sa.sa_flags = SA_SIGINFO;
+
+    if (sigaction(SIGINT, &sa, NULL) == -1) {
+        perror("sigaction");
         exit(EXIT_FAILURE);
     }
-    else if(task_manager_pid == 0){
-        // dans le fils "gestionnaire de tâches"
-        task_manager.sa_handler = task_controller;
-        sigemptyset(&task_manager.sa_mask);
-        task_manager.sa_flags = 0;
-
-        if (sigaction(SIGUSR1, &task_manager, NULL) == -1) {
-            perror("sigaction");
-            exit(EXIT_FAILURE);
-        }
-
-        while(1){
-            sleep(1);
-            fflush(stdout);
-            printf("je suis là\n");
-        }
-
-    }else{
-
-        // dans le père aka main 
-
-
-        exit_manager.sa_handler = exit_controller;
-        sigemptyset(&exit_manager.sa_mask);
-        exit_manager.sa_flags = 0;
-
-        if (sigaction(SIGINT, &exit_manager, NULL) == -1) {
-            perror("sigaction");
-            exit(EXIT_FAILURE);
-        }
-        sleep(1); 
-        // ici on doit pouvoir envoyer des tâches à traiter au fils 
-
-        Task t1 = {1, "coucou"};
-
-
-
+    if (sigaction(SIGUSR1, &son, NULL) == -1) {
+        perror("sigaction");
+        exit(EXIT_FAILURE);
     }
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        // dans le fils
+        close(pipefd[1]); 
+        task_manager();
+        exit(0);
+    } else if (pid < 0) {
+        perror("fork failed");
+        exit(EXIT_FAILURE);
+    }
+
+    close(pipefd[0]); 
+    char task_info[BUFFER_SIZE];
+    while (1) {
+        printf("Veuillez entrez les taches à éxécuter (1 param1...): ");
+        fgets(task_info, BUFFER_SIZE, stdin);
+        write(pipefd[1], task_info, strlen(task_info));
+    }
+
+    wait(NULL);
+
     return 0;
 }
