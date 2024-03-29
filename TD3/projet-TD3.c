@@ -6,11 +6,15 @@
 #include <sys/wait.h>
 #include <time.h>
 
+int nb_task = 0;
+
 typedef struct {
     int task_id; 
     char* params;
     struct TaskRequest* next;
 } TaskRequest;
+
+
 
 
 pid_t pid;
@@ -39,38 +43,14 @@ void execute_task(TaskRequest *request) {
 }
 
 void task_manager(int read_fd) {
-
-    TaskRequest* main = malloc(sizeof(TaskRequest));
-    main->next = NULL;
-    main->params = NULL;
-    main->task_id = 0;
-
-    TaskRequest request;
-    pid_t pid;
-    int status;
-
-    while (1) {
-        // Lire la demande de tâche de la file d'attente
-        if (read(read_fd, &request, sizeof(TaskRequest)) == sizeof(TaskRequest)) {
-            // Créer un processus enfant pour exécuter la tâche
-            pid = fork();
-            if (pid == 0) { // Processus enfant
-                execute_task(&request);
-                exit(0);
-            } else if (pid > 0) { // Processus parent (gestionnaire de tâches)
-                // Attendre que le processus enfant termine
-                waitpid(pid, &status, 0);
-                // Envoyer un message de retour au client de tâches
-                // Ici, vous pouvez ajouter le code pour envoyer le message de retour
-            } else {
-                perror("fork");
-                exit(1);
-            }
-        } else {
-            perror("erreur de lecture");
-            break;
+    // lire les données à partir du pipe et simuler un traitement ! 
+        char* myvar;
+        read(read_fd, myvar, 5);
+        printf("\n myvar = %s", myvar);
+        while(1){
+            printf("Le fils vit !\n");
+            sleep(1);
         }
-    }
 }
 
 
@@ -108,22 +88,13 @@ int main() {
     pid = fork();
     if (pid == 0) { //  fils (gestionaire de tâche)
         close(fd[1]); 
+        task_manager(fd[0]); // Exécuter le gestionnaire de tâches
         
-        //task_manager(fd[0]); // Exécuter le gestionnaire de tâches
-        char* myvar;
-        read(fd[0], myvar, 5);
-        printf("\n myvar = %s", myvar);
-        while(1){
-            printf("Le fils vit !\n");
-            sleep(1);
-        }
-
         exit(0);
     } 
     
     else if (pid > 0) { 
         // père 
-
         close(fd[0]); 
         
         while (1) {
@@ -131,8 +102,9 @@ int main() {
 
             // Ici, vous pouvez ajouter le code pour envoyer des demandes de tâches
             // via le pipe, par exemple en utilisant write(fd[1], &request, sizeof(TaskRequest));
-
-            write(fd[1], "test", 5);
+            if(verif){
+                write(fd[1], "test", 5);
+            }
 
             sleep(1); // Simule une pause entre les envois de demandes
         }
