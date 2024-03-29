@@ -47,6 +47,7 @@ void task_manager(int read_fd) {
         char* myvar;
         read(read_fd, myvar, 5);
         printf("\n myvar = %s", myvar);
+
         while(1){
             printf("Le fils vit !\n");
             sleep(1);
@@ -88,8 +89,9 @@ int main() {
     pid = fork();
     if (pid == 0) { //  fils (gestionaire de tâche)
         close(fd[1]); 
-        task_manager(fd[0]); // Exécuter le gestionnaire de tâches
-        
+        int file_descriptor = fd[0];
+        task_manager(file_descriptor); // Exécuter le gestionnaire de tâches
+
         exit(0);
     } 
     
@@ -102,6 +104,8 @@ int main() {
 
             // Ici, vous pouvez ajouter le code pour envoyer des demandes de tâches
             // via le pipe, par exemple en utilisant write(fd[1], &request, sizeof(TaskRequest));
+
+
             if(verif){
                 write(fd[1], "test", 5);
             }
