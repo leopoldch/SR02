@@ -15,7 +15,12 @@ typedef struct {
 } TaskRequest;
 
 
-
+TaskRequest* createTask(char* params, unsigned int id){
+    TaskRequest* newTask = malloc(sizeof(TaskRequest));
+    newTask->next = NULL;
+    newTask->task_id = id;
+    newTask->params = params;
+}
 
 pid_t pid;
 int verif = 1;
@@ -42,16 +47,9 @@ void execute_task(TaskRequest *request) {
     sleep(1); 
 }
 
-void task_manager(int read_fd) {
+void task_manager(char* task_params) {
     // lire les données à partir du pipe et simuler un traitement ! 
-        char* myvar;
-        read(read_fd, myvar, 5);
-        printf("\n myvar = %s", myvar);
 
-        while(1){
-            printf("Le fils vit !\n");
-            sleep(1);
-        }
 }
 
 
@@ -89,8 +87,13 @@ int main() {
     pid = fork();
     if (pid == 0) { //  fils (gestionaire de tâche)
         close(fd[1]); 
-        int file_descriptor = fd[0];
-        task_manager(file_descriptor); // Exécuter le gestionnaire de tâches
+    
+        while(1){
+            char* var; 
+            read(fd[0],var,50);
+
+            printf("var = %s \n", var);
+        }
 
         exit(0);
     } 
@@ -98,7 +101,6 @@ int main() {
     else if (pid > 0) { 
         // père 
         close(fd[0]); 
-        
         while (1) {
             printf("Le père vit ! \n");
 
