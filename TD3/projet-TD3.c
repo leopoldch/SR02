@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
+#include <string.h>
 
 int nb_task = 0;
 
@@ -91,8 +92,14 @@ int main() {
         while(1){
             char* var; 
             read(fd[0],var,50);
+            if(strcmp(var,"pas de tache") == 0){
+                printf("%s \n", var);
+            }else{
+                printf("éxécution de la tâche passée\n");
+                // on éxécute la tâche dans un nouveau processus ! (fork)
 
-            printf("var = %s \n", var);
+                
+            }
         }
 
         exit(0);
@@ -104,12 +111,12 @@ int main() {
         while (1) {
             printf("Le père vit ! \n");
 
-            // Ici, vous pouvez ajouter le code pour envoyer des demandes de tâches
-            // via le pipe, par exemple en utilisant write(fd[1], &request, sizeof(TaskRequest));
-
-
+            // on passe via un pipe la tâche à faire (parametres)
+            // la file d'attente sous forme de structure doit être dans le père et on passe
+            // juste les processus uns par uns au fils. 
+            
             if(verif){
-                write(fd[1], "test", 5);
+                write(fd[1], "pas de tache", 50);
             }
 
             sleep(1); // Simule une pause entre les envois de demandes
