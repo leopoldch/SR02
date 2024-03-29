@@ -95,8 +95,14 @@ int main() {
             if(strcmp(var,"pas de tache") == 0){
                 printf("%s \n", var);
             }else{
-                printf("éxécution de la tâche passée\n");
-                // on éxécute la tâche dans un nouveau processus ! (fork)
+                // -- 
+                pid_t child_fork = fork();
+                if (child_fork == 0){
+                    // fils 
+                    //simulate exécution of task 
+                    printf("execution de la tâche %s \n", var);
+                    sleep(2);
+                }
 
                 
             }
