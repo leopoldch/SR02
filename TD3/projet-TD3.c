@@ -6,6 +6,8 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <string.h>
+#define MAX_CHILD_PROCESSES 5
+
 
 int nb_task = 0;
 
@@ -49,7 +51,7 @@ void handle_sigint(int sig, siginfo_t *info, void *context) {
     if(!verif){
         printf("\nLe processus gestionnaire de tâche a déjà été terminé !\n");
     }
-    if(pid != 0){ // on doit l'éxécuter depuis le père et l'envoyer au fils 
+    if(pid != 0){ 
         //printf("Éxécuté - pid fils : %d / pid courant : %d\n", pid, getpid());
         kill(pid, SIGUSR1);
         verif = 0;
@@ -62,15 +64,8 @@ void handle_sigusr1(int sig, siginfo_t *info, void *context) {
     exit(0);
 }
 
-void execute_task(TaskRequest *request) {
-    printf("Exécution de la tâche %d\n", request->task_id);
-    sleep(1); 
-}
 
-void task_manager(char* task_params) {
-    // lire les données à partir du pipe et simuler un traitement ! 
 
-}
 
 
 
@@ -105,22 +100,31 @@ int main() {
     pid = fork();
     if (pid == 0) { //  fils (gestionaire de tâche)
         close(fd[1]); 
-    
+        int active_children = 0;
+
         while(1){
-            char* var; 
-            read(fd[0],var,50);
+            char var[50]; 
+            read(fd[0], var, sizeof(var));
             if(strcmp(var,"pas de tache") == 0 || strcmp(var, "") ==0){
-                printf("pas de tache \n");
+                printf("en attente de tache \n");
             }else{
-                printf("execution de la tâche %s \n", var);
-                // -- 
-                //pid_t child_fork = fork();
-                //if (child_fork == 0){
-                    // fils 
-                    //simulate exécution of task 
-                //    printf("execution de la tâche %s \n", var);
-                //    sleep(2);
-                //}
+                pid_t child_pid = fork();
+                if (child_pid == 0){
+                    // Fils
+                    printf("Execution de la tâche : %s \nPID du processus executant la tache : %d \n",var, getpid());
+                    exit(0);
+                } else if (child_pid > 0) {
+                    // Père
+                    active_children++;
+                    if (active_children >= MAX_CHILD_PROCESSES) {
+                        // Attendre qu'un processus fils se termine avant de continuer
+                        wait(NULL);
+                        active_children--;
+                    }
+                } else {
+                    perror("fork");
+                    exit(1);
+                }
             }
             sleep(2);
         }
@@ -135,14 +139,11 @@ int main() {
         TaskRequest* file = createTask("Task 1", 1);
         addTask(file, "Task 2", 2);
         addTask(file, "Task 3", 3);
+        addTask(file, "Task 4", 4);
+        addTask(file, "Task 5", 5);
 
-
-        TaskRequest* tmp = file;
-        while(tmp!=NULL){
-            printf("%s \n",tmp->params);
-            tmp = tmp->next;
-        }
-
+        // ajouter d'autres tâches ? 
+        // manière plus simple ? 
 
         while (1) {
             printf("Le père vit ! \n");
