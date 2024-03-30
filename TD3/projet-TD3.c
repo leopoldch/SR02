@@ -18,10 +18,29 @@ typedef struct {
 
 TaskRequest* createTask(char* params, unsigned int id){
     TaskRequest* newTask = malloc(sizeof(TaskRequest));
+    if (newTask == NULL) {
+        return NULL;
+    }
     newTask->next = NULL;
     newTask->task_id = id;
-    newTask->params = params;
+    newTask->params = params; 
+    return newTask; 
 }
+
+TaskRequest* deleteFirstTask(TaskRequest* file){
+    TaskRequest* tmp = file->next;
+    free(file);
+    return tmp;
+}
+
+void addTask(TaskRequest *file, char* params, unsigned int id){
+    TaskRequest* tmp = file;
+    while(tmp->next != NULL){
+        tmp = tmp->next;
+    }
+    tmp->next = createTask(params, id);
+}
+
 
 pid_t pid;
 int verif = 1;
@@ -53,9 +72,6 @@ void task_manager(char* task_params) {
 
 }
 
-
-
-char* getTask
 
 
 
@@ -93,20 +109,20 @@ int main() {
         while(1){
             char* var; 
             read(fd[0],var,50);
-            if(strcmp(var,"pas de tache") == 0){
-                printf("%s \n", var);
+            if(strcmp(var,"pas de tache") == 0 || strcmp(var, "") ==0){
+                printf("pas de tache \n");
             }else{
+                printf("execution de la tâche %s \n", var);
                 // -- 
-                pid_t child_fork = fork();
-                if (child_fork == 0){
+                //pid_t child_fork = fork();
+                //if (child_fork == 0){
                     // fils 
                     //simulate exécution of task 
-                    printf("execution de la tâche %s \n", var);
-                    sleep(2);
-                }
-
-                
+                //    printf("execution de la tâche %s \n", var);
+                //    sleep(2);
+                //}
             }
+            sleep(2);
         }
 
         exit(0);
@@ -115,16 +131,36 @@ int main() {
     else if (pid > 0) { 
         // père 
         close(fd[0]); 
+        
+        TaskRequest* file = createTask("Task 1", 1);
+        addTask(file, "Task 2", 2);
+        addTask(file, "Task 3", 3);
+
+
+        TaskRequest* tmp = file;
+        while(tmp!=NULL){
+            printf("%s \n",tmp->params);
+            tmp = tmp->next;
+        }
+
+
         while (1) {
             printf("Le père vit ! \n");
 
-            // on passe via un pipe la tâche à faire (parametres)
-            // la file d'attente sous forme de structure doit être dans le père et on passe
-            // juste les processus uns par uns au fils. 
+                if(verif){
+                    if(file != NULL){
+                        write(fd[1], file->params, 50);
+                        file = deleteFirstTask(file);
+                    }
+                    else{
+                    write(fd[1], "pas de tache", 50);
+                    }
+                }else{
+                    // le gestionnaire de tâche a été tué, ne rien faire 
+                }
+
             
-            if(verif){
-                write(fd[1], "pas de tache", 50);
-            }
+
 
             sleep(1); // Simule une pause entre les envois de demandes
         }
