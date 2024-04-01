@@ -23,6 +23,8 @@ typedef struct {
 //Creation d'un tache ; renvoie pointeur
 TaskRequest* createTask(char* params, unsigned int id){
 
+    printf("[Tache] Nouvelle tache : %s\n", params);
+
     TaskRequest* newTask = malloc(sizeof(TaskRequest));
     if (newTask == NULL) {
         return NULL;
@@ -127,9 +129,11 @@ int main() {
                 child_pid = fork();
                 if (child_pid == 0){
                     // Fils
-                    printf("Execution de la tâche : %s \nPID du processus executant la tache %d :\n",var, getpid());
-                    system(var);
-                    exit(0);
+                    printf("[Execution] PID (%d) Tache (%s)\n",getpid(), var);
+                    int retour = system(var);
+                    exit(retour);
+
+                    //exit(0) pour une autre implementation.
                 } else if (child_pid > 0) {
 
                     int status;
@@ -170,15 +174,15 @@ int main() {
             memset(temp, 0, sizeof(char)*50);
             memset(task, 0, sizeof(char)*50);
 
-            printf("Rentrez une commande : ");
+            printf("Rentrez une commande (mettre 0 pour valider): ");
             fgets(temp, sizeof(temp), stdin);
             temp[strcspn(temp, "\n")] = 0;
             strcpy(task, temp);
 
-            if(strcmp(task, "sendtasks") != 0) {
+            if(strcmp(task, "0") != 0) {
                 addTask(file, task, compteur);
                 compteur++;
-                printf("Commande choisie : %s\n", task);
+                //printf("Commande choisie : %s\n", task);
             } else {
                 break;
             }
@@ -186,7 +190,7 @@ int main() {
         }
 
         while (1) {
-            printf("Le père vit ! \n");
+            //printf("Le père vit ! \n");
 
                 if(verif){
                     if(file != NULL){
@@ -199,18 +203,11 @@ int main() {
                 }else{
                     // le gestionnaire de tâche a été tué, ne rien faire 
                 }
-
-            
-
-
             sleep(1); // Simule une pause entre les envois de demandes
         }
-
-        
     } else {
         perror("fork");
         exit(1);
     }
-
     return 0;
 }
