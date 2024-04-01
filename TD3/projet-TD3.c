@@ -7,6 +7,7 @@
 #include <time.h>
 #include <string.h>
 #define MAX_CHILD_PROCESSES 5
+#define TIME_OUT_PROCESS 2
 
 
 int nb_task = 0;
@@ -19,13 +20,15 @@ typedef struct {
 
 
 TaskRequest* createTask(char* params, unsigned int id){
+
     TaskRequest* newTask = malloc(sizeof(TaskRequest));
     if (newTask == NULL) {
         return NULL;
     }
     newTask->next = NULL;
     newTask->task_id = id;
-    newTask->params = params; 
+    newTask->params = malloc(strlen(params)+1);
+    strcpy(newTask->params, params);
     return newTask; 
 }
 
@@ -45,6 +48,7 @@ void addTask(TaskRequest *file, char* params, unsigned int id){
 
 
 pid_t pid;
+pid_t child_pid;
 int verif = 1;
 
 void handle_sigint(int sig, siginfo_t *info, void *context) {
@@ -64,6 +68,11 @@ void handle_sigusr1(int sig, siginfo_t *info, void *context) {
     exit(0);
 }
 
+void handle_alarm(int sig) {
+    printf("\tProcessus %d time out\n", child_pid);
+    kill(child_pid, SIGTERM);
+}
+
 
 
 
@@ -74,6 +83,7 @@ int main() {
     int fd[2];
     struct sigaction pere;
     struct sigaction fils;
+    struct sigaction fils_alarm;
 
     fils.sa_sigaction = handle_sigusr1;
         fils.sa_flags = SA_SIGINFO;
@@ -106,14 +116,29 @@ int main() {
             char var[50]; 
             read(fd[0], var, sizeof(var));
             if(strcmp(var,"pas de tache") == 0 || strcmp(var, "") ==0){
-                printf("en attente de tache \n");
+                //printf("en attente de tache \n");
             }else{
-                pid_t child_pid = fork();
+
+                child_pid = fork();
                 if (child_pid == 0){
                     // Fils
-                    printf("Execution de la tâche : %s \nPID du processus executant la tache : %d \n",var, getpid());
+                    sleep(5);
+                    printf("Execution de la tâche : %s \nPID du processus executant la tache %d :\n",var, getpid());
+                    system(var);
                     exit(0);
                 } else if (child_pid > 0) {
+
+                    
+                    fils_alarm.sa_sigaction = handle_alarm;
+                    fils_alarm.sa_flags = SA_SIGINFO;
+                    sigemptyset(&fils_alarm.sa_mask);
+                    if (sigaction(SIGALRM, &fils_alarm, NULL) == -1) {
+                        perror("sigaction fils alarm");
+                        exit(1);
+                    }
+
+                    alarm(TIME_OUT_PROCESS);
+
                     // Père
                     active_children++;
                     if (active_children >= MAX_CHILD_PROCESSES) {
@@ -121,6 +146,7 @@ int main() {
                         wait(NULL);
                         active_children--;
                     }
+
                 } else {
                     perror("fork");
                     exit(1);
@@ -136,14 +162,31 @@ int main() {
         // père 
         close(fd[0]); 
         
-        TaskRequest* file = createTask("Task 1", 1);
-        addTask(file, "Task 2", 2);
-        addTask(file, "Task 3", 3);
-        addTask(file, "Task 4", 4);
-        addTask(file, "Task 5", 5);
+        TaskRequest* file = createTask("pwd", 1);
+        //addTask(file, "ps -ef", 2);
 
-        // ajouter d'autres tâches ? 
-        // manière plus simple ? 
+        char task[50] = "";
+        char temp[50];
+        int compteur = 2;
+
+        while(1) {
+            memset(temp, 0, sizeof(char)*50);
+            memset(task, 0, sizeof(char)*50);
+
+            printf("Rentrez une commande : ");
+            fgets(temp, sizeof(temp), stdin);
+            temp[strcspn(temp, "\n")] = 0;
+            strcpy(task, temp);
+
+            if(strcmp(task, "sendtasks") != 0) {
+                addTask(file, task, compteur);
+                compteur++;
+                printf("Commande choisie : %s\n", task);
+            } else {
+                break;
+            }
+
+        }
 
         while (1) {
             printf("Le père vit ! \n");
@@ -154,7 +197,7 @@ int main() {
                         file = deleteFirstTask(file);
                     }
                     else{
-                    write(fd[1], "pas de tache", 50);
+                        write(fd[1], "pas de tache", 50);
                     }
                 }else{
                     // le gestionnaire de tâche a été tué, ne rien faire 
