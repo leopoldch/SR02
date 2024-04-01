@@ -12,6 +12,7 @@
 
 int nb_task = 0;
 
+//Definition de la structure de tache : Numero de tache, paramètre de tache et tache suivante.
 typedef struct {
     int task_id; 
     char* params;
@@ -19,6 +20,7 @@ typedef struct {
 } TaskRequest;
 
 
+//Creation d'un tache ; renvoie pointeur
 TaskRequest* createTask(char* params, unsigned int id){
 
     TaskRequest* newTask = malloc(sizeof(TaskRequest));
@@ -32,12 +34,14 @@ TaskRequest* createTask(char* params, unsigned int id){
     return newTask; 
 }
 
+//Prend la premiere tache la retire et l'envoie
 TaskRequest* deleteFirstTask(TaskRequest* file){
     TaskRequest* tmp = file->next;
     free(file);
     return tmp;
 }
 
+//Ajoute une tache a la fin
 void addTask(TaskRequest *file, char* params, unsigned int id){
     TaskRequest* tmp = file;
     while(tmp->next != NULL){
@@ -47,10 +51,11 @@ void addTask(TaskRequest *file, char* params, unsigned int id){
 }
 
 
-pid_t pid;
-pid_t child_pid;
+pid_t pid; //PID Gestionnaire
+pid_t child_pid; //PID des sous fils du gestionnaire (execution de tache)
 int verif = 1;
 
+//Attend le signal CTR C et arrete le gestionnaire de taches
 void handle_sigint(int sig, siginfo_t *info, void *context) {
     if(!verif){
         printf("\nLe processus gestionnaire de tâche a déjà été terminé !\n");
@@ -62,22 +67,20 @@ void handle_sigint(int sig, siginfo_t *info, void *context) {
     }
 }
 
+//Attend le signal SIGUSR1 et arrete le processus courant (sur le gestionnnaire de tache)
 void handle_sigusr1(int sig, siginfo_t *info, void *context) {
     // on reçoit bien dans le fils et on doit maintenant kill les processus crée par le gestionnnaire de tâche ? 
     printf("Processus gestionnaire de tâche terminé.\npid : %d \n", getpid());
     exit(0);
 }
 
-void handle_alarm(int sig) {
-    printf("\tProcessus %d time out\n", child_pid);
-    kill(child_pid, SIGTERM);
+//Attend un signal alarm pour arreter les sous fils du gestionnaire de taches (Execution en cours)
+void handle_alarm(int sig, siginfo_t *info, void *context) {
+    if (kill(child_pid, 0) == 0) {
+        printf("\tProcessus %d time out\n", child_pid);
+        kill(child_pid, SIGTERM);
+    }
 }
-
-
-
-
-
-
 
 int main() {
     int fd[2];
@@ -85,6 +88,7 @@ int main() {
     struct sigaction fils;
     struct sigaction fils_alarm;
 
+    //Gestionnaire de signal pour arret
     fils.sa_sigaction = handle_sigusr1;
         fils.sa_flags = SA_SIGINFO;
         sigemptyset(&fils.sa_mask);
@@ -93,6 +97,7 @@ int main() {
             perror("sigaction fils");
             exit(1);
         }
+    //Gestionnaire de signal pour arret CTRC
     pere.sa_sigaction = handle_sigint;
         pere.sa_flags = SA_SIGINFO;
         sigemptyset(&pere.sa_mask);
@@ -122,13 +127,14 @@ int main() {
                 child_pid = fork();
                 if (child_pid == 0){
                     // Fils
-                    sleep(5);
                     printf("Execution de la tâche : %s \nPID du processus executant la tache %d :\n",var, getpid());
                     system(var);
                     exit(0);
                 } else if (child_pid > 0) {
 
+                    int status;
                     
+                    //gestionnaire de signal pour attendre l'alarme
                     fils_alarm.sa_sigaction = handle_alarm;
                     fils_alarm.sa_flags = SA_SIGINFO;
                     sigemptyset(&fils_alarm.sa_mask);
@@ -138,14 +144,7 @@ int main() {
                     }
 
                     alarm(TIME_OUT_PROCESS);
-
-                    // Père
-                    active_children++;
-                    if (active_children >= MAX_CHILD_PROCESSES) {
-                        // Attendre qu'un processus fils se termine avant de continuer
-                        wait(NULL);
-                        active_children--;
-                    }
+                    waitpid(child_pid, &status, 0);
 
                 } else {
                     perror("fork");
@@ -154,10 +153,8 @@ int main() {
             }
             sleep(2);
         }
-
         exit(0);
     } 
-    
     else if (pid > 0) { 
         // père 
         close(fd[0]); 
