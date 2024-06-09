@@ -9,17 +9,9 @@
 
 
 // ----------------------- SEQUENTIEL -----------------------
-
-int main() {
-    //valeur max
-    unsigned int n = 500000;
-    //nb de thread
-    unsigned int k = 1;
-    //tableau
+void sieve_of_eratosthenes(unsigned int n) {  // Ajout de la fonction sieve_of_eratosthenes
+    // tableau
     bool tab[n + 1]; 
-    // threads
-    struct timespec start, end;
-    clock_gettime(CLOCK_REALTIME, &start);
 
     for (unsigned int i = 2; i <= n; i++) {
         tab[i] = true;
@@ -33,12 +25,7 @@ int main() {
             }
         }
     }
-    clock_gettime(CLOCK_REALTIME, &end);
-    double time_spent = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / BILLION;
 
-    // Affichage 
-    printf("Temps d'execution en sequentiel pour n=%d :  %f seconds\n ",n, time_spent);
-    
     /* UTILE POUR DEBUG
     printf("Nombres premiers jusqu'a %d:\n", n);
     for (unsigned int i = 2; i <= n; i++) {
@@ -46,8 +33,23 @@ int main() {
             printf("%d ", i);
         }
     }*/
-    return 0;
 }
 
+int main() {
+    // valeur max
+    unsigned int n = 500000;
+
+    // temps d'exécution
+    clock_t start = clock();
+    sieve_of_eratosthenes(n);  // Appel de la fonction sieve_of_eratosthenes
+    clock_t end = clock();
+
+    double time_spent = (double)(end - start) / CLOCKS_PER_SEC;
+
+    // Affichage 
+    printf("Temps d'execution en sequentiel pour n=%d :  %f seconds\n", n, time_spent);
+
+    return 0;
+}
 
 

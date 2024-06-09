@@ -110,9 +110,9 @@ double main(){
     }
     pthread_join(mainThread, NULL);
 
-    for(int i = 0; i < size; i++){
-        printf("array[%d] = %d \n", i, array[i]);
-    }
+    //for(int i = 0; i < size; i++){
+    //    printf("array[%d] = %d \n", i, array[i]);
+    //}
 
     endTime = clock();
     totalTime = (double)(endTime - startTime) / CLOCKS_PER_SEC;

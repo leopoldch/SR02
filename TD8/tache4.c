@@ -3,7 +3,7 @@
 #include <math.h>
 #include <time.h>
 #include <pthread.h>
-
+#include <xlsxwriter.h>
 
 float compute_sequential(int size) {
     clock_t start_time, end_time;
@@ -110,39 +110,59 @@ float compute_parallel(int size, int num_threads) {
 
 int main() {
     int sizes[] = {500000, 1000000, 2000000, 4000000};
+    int p = 100; // Nombre de répétitions des algorithmes
+
+    // Initialiser le fichier Excel
+    lxw_workbook  *workbook  = workbook_new("timing_results.xlsx");
+    lxw_worksheet *worksheet = workbook_add_worksheet(workbook, NULL);
+
+    char algo_header[50];
+    sprintf(algo_header, "Run: %d fois", p);
+
+    // Écrire les en-têtes
+    worksheet_write_string(worksheet, 0, 0, algo_header, NULL);
+    worksheet_write_string(worksheet, 0, 1, "Seq", NULL);
+    for (int k = 1; k <= 7; k++) {
+        char header[20];
+        sprintf(header, "Paral k=%d", k);
+        worksheet_write_string(worksheet, 0, k + 1, header, NULL);
+    }
+
     for (int s = 0; s < 4; s++) {
         int n = sizes[s];
         printf("n = %d : \n", n);
 
         double sequential_time_avg = 0;
-        double sequential_time = compute_sequential(n);
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < p; i++) {
             sequential_time_avg += compute_sequential(n);
         }
-        sequential_time_avg /= 10;
+        sequential_time_avg /= p;
 
         double parallel_time_avg[7] = {0};
-        double parallel_time[7] = {0};
 
         for (int k = 1; k <= 7; k++) {
-            for (int i = 0; i < 10; i++) {
+            for (int i = 0; i < p; i++) {
                 parallel_time_avg[k-1] += compute_parallel(n, k);
             }
-            parallel_time[k-1] = compute_parallel(n, k);
-            parallel_time_avg[k-1] /= 10;
+            parallel_time_avg[k-1] /= p;
         }
 
-        printf("Simple results: \nseq=%f\n", sequential_time);
+        // Écrire les résultats dans le fichier Excel
+        worksheet_write_number(worksheet, s + 1, 0, n, NULL);
+        worksheet_write_number(worksheet, s + 1, 1, sequential_time_avg, NULL);
         for (int k = 1; k <= 7; k++) {
-            printf("par%d=%f\n", k, parallel_time[k-1]);
+            worksheet_write_number(worksheet, s + 1, k + 1, parallel_time_avg[k-1], NULL);
         }
 
-        printf("Average results (10 runs): \nseq=%f\n", sequential_time_avg);
+        printf("Average results (%d runs): \nseq=%f\n", p, sequential_time_avg);
         for (int k = 1; k <= 7; k++) {
             printf("par%d=%f\n", k, parallel_time_avg[k-1]);
         }
         printf("------------------------------------------------------------------------\n");
     }
+
+    // Fermer le fichier Excel
+    workbook_close(workbook);
 
     return 0;
 }
